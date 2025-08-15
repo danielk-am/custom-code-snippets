@@ -1,3 +1,35 @@
+/**
+ * Enhanced Stock Query Monitor Filter
+ * 
+ * This filter monitors and logs all database queries related to WooCommerce stock management
+ * to help identify potential performance issues, unauthorized stock modifications, or
+ * problematic plugins that may be causing excessive database load.
+ * 
+ * What it monitors:
+ * - Queries containing '_postmeta' table references
+ * - Queries related to stock ('_stock') or backorders ('_backorders')
+ * - Excludes SELECT queries and order stock reduction queries
+ * 
+ * What it logs:
+ * - Full SQL query details
+ * - User information and authentication details
+ * - Request context (REST API, AJAX, Cron, CLI, etc.)
+ * - Complete backtrace with file paths and line numbers
+ * - Plugin identification for non-core files
+ * - External system indicators and headers
+ * - WooCommerce-specific webhook and API details
+ * 
+ * Logging destinations:
+ * - WooCommerce logger (if available)
+ * - WordPress debug log (if WP_DEBUG is enabled)
+ * 
+ * @since 1.0.0
+ * @author Daniel Kam + Cursor AI
+ * @package Enhanced Stock Monitor
+ * 
+ * @param string $query The SQL query being executed
+ * @return string The original query (unchanged)
+ */
 add_filter('query', function($query) {
     if (
         stripos($query, '_postmeta') !== false &&
@@ -14,6 +46,7 @@ add_filter('query', function($query) {
             'query' => $query,
             'timestamp' => current_time('mysql'),
             'user_id' => get_current_user_id(),
+            'username' => wp_get_current_user()->user_login ?? 'Unknown',
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
             'request_uri' => $_SERVER['REQUEST_URI'] ?? 'Unknown',
             'http_method' => $_SERVER['REQUEST_METHOD'] ?? 'Unknown',
@@ -63,13 +96,11 @@ add_filter('query', function($query) {
             $debug_info['trigger'] = 'REST API';
             $debug_info['rest_route'] = $_SERVER['REQUEST_URI'] ?? 'Unknown';
             
-            // Get REST API authentication details
+            // Get REST API authentication details (without sensitive keys)
             $debug_info['rest_auth'] = array(
                 'user_id' => get_current_user_id(),
-                'consumer_key' => $_SERVER['HTTP_X_WC_CONSUMER_KEY'] ?? 'None',
-                'consumer_secret' => $_SERVER['HTTP_X_WC_CONSUMER_SECRET'] ?? 'None',
-                'oauth_signature' => $_SERVER['HTTP_AUTHORIZATION'] ? 'OAuth' : 'None',
-                'basic_auth' => $_SERVER['HTTP_AUTHORIZATION'] && strpos($_SERVER['HTTP_AUTHORIZATION'], 'Basic') === 0 ? 'Yes' : 'No'
+                'username' => wp_get_current_user()->user_login ?? 'Unknown',
+                'auth_method' => $_SERVER['HTTP_AUTHORIZATION'] ? 'OAuth/Basic' : 'None'
             );
             
             // Get the actual REST API endpoint details
@@ -96,11 +127,11 @@ add_filter('query', function($query) {
                 'x_forwarded_proto' => $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'None'
             );
             
-            // Check for WooCommerce specific headers
+            // Check for WooCommerce specific headers (without sensitive data)
             $debug_info['wc_headers'] = array(
-                'x_wc_webhook_source' => $_SERVER['HTTP_X_WC_WEBHOOK_SOURCE'] ?? 'None',
-                'x_wc_webhook_topic' => $_SERVER['HTTP_X_WC_WEBHOOK_TOPIC'] ?? 'None',
-                'x_wc_webhook_signature' => $_SERVER['HTTP_X_WC_WEBHOOK_SIGNATURE'] ?? 'None'
+                'webhook_source' => $_SERVER['HTTP_X_WC_WEBHOOK_SOURCE'] ? 'Present' : 'None',
+                'webhook_topic' => $_SERVER['HTTP_X_WC_WEBHOOK_TOPIC'] ?? 'None',
+                'webhook_signature' => $_SERVER['HTTP_X_WC_WEBHOOK_SIGNATURE'] ? 'Present' : 'None'
             );
         }
         
