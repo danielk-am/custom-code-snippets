@@ -12,7 +12,6 @@
  * 
  * What it logs:
  * - Full SQL query details
- * - User information and authentication details
  * - Request context (REST API, AJAX, Cron, CLI, etc.)
  * - Complete backtrace with file paths and line numbers
  * - Plugin identification for non-core files
